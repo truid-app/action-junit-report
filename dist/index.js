@@ -490,7 +490,7 @@ function templateVar(varName) {
 function parseSuite(
 /* eslint-disable  @typescript-eslint/no-explicit-any */
 suite, parentName, suiteRegex, annotatePassed = false, checkRetries = false, excludeSources, checkTitleTemplate = undefined, testFilesPrefix = '', transformer, followSymlink, annotationsLimit) {
-    var _a, _b;
+    var _a, _b, _c, _d;
     return __awaiter(this, void 0, void 0, function* () {
         let totalCount = 0;
         let skipped = 0;
@@ -576,6 +576,14 @@ suite, parentName, suiteRegex, annotatePassed = false, checkRetries = false, exc
                     : undefined;
                 // the action only supports 1 failure per testcase
                 const failure = failures ? failures[0] : undefined;
+                // in some definitions `failure` may be an array
+                const systemOuts = testcase['system-out']
+                    ? Array.isArray(testcase['system-out'])
+                        ? testcase['system-out']
+                        : [testcase['system-out']]
+                    : undefined;
+                // the action only supports 1 failure per testcase
+                const systemOut = systemOuts ? systemOuts[0] : undefined;
                 if (testcase.skipped || testcase._attributes.status === 'disabled') {
                     skipped++;
                 }
@@ -586,14 +594,15 @@ suite, parentName, suiteRegex, annotatePassed = false, checkRetries = false, exc
                     '')
                     .toString()
                     .trim();
+                const sysout = (_b = (_a = ((systemOut && systemOut._cdata) || (systemOut && systemOut._text))) === null || _a === void 0 ? void 0 : _a.toString()) === null || _b === void 0 ? void 0 : _b.trim();
                 const message = ((failure && failure._attributes && failure._attributes.message) ||
                     (testcase.error && testcase.error._attributes && testcase.error._attributes.message) ||
                     stackTrace.split('\n').slice(0, 2).join('\n') ||
                     testcase._attributes.name).trim();
                 const pos = yield resolveFileAndLine(testcase._attributes.file ||
-                    ((_a = failure === null || failure === void 0 ? void 0 : failure._attributes) === null || _a === void 0 ? void 0 : _a.file) ||
+                    ((_c = failure === null || failure === void 0 ? void 0 : failure._attributes) === null || _c === void 0 ? void 0 : _c.file) ||
                     (testsuite._attributes !== undefined ? testsuite._attributes.file : null), testcase._attributes.line ||
-                    ((_b = failure === null || failure === void 0 ? void 0 : failure._attributes) === null || _b === void 0 ? void 0 : _b.line) ||
+                    ((_d = failure === null || failure === void 0 ? void 0 : failure._attributes) === null || _d === void 0 ? void 0 : _d.line) ||
                     (testsuite._attributes !== undefined ? testsuite._attributes.line : null), testcase._attributes.classname ? testcase._attributes.classname : testcase._attributes.name, stackTrace);
                 let transformedFileName = pos.fileName;
                 for (const r of transformer) {
@@ -627,6 +636,10 @@ suite, parentName, suiteRegex, annotatePassed = false, checkRetries = false, exc
                 // optionally attach the prefix to the path
                 resolvedPath = testFilesPrefix ? pathHelper.join(testFilesPrefix, resolvedPath) : resolvedPath;
                 core.info(`${resolvedPath}:${pos.line} | ${message.replace(/\n/g, ' ')}`);
+                let rawDetails = stackTrace;
+                if (sysout) {
+                    rawDetails += `\n\n${sysout}`;
+                }
                 annotations.push({
                     path: resolvedPath,
                     start_line: pos.line,
@@ -636,7 +649,7 @@ suite, parentName, suiteRegex, annotatePassed = false, checkRetries = false, exc
                     annotation_level: success ? 'notice' : 'failure',
                     title: escapeEmoji(title),
                     message: escapeEmoji(message),
-                    raw_details: escapeEmoji(stackTrace)
+                    raw_details: escapeEmoji(rawDetails)
                 });
                 if (annotationsLimit > 0) {
                     const count = annotations.filter(a => a.annotation_level === 'failure' || annotatePassed).length;

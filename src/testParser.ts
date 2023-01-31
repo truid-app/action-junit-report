@@ -289,6 +289,15 @@ async function parseSuite(
       // the action only supports 1 failure per testcase
       const failure = failures ? failures[0] : undefined
 
+      // in some definitions `failure` may be an array
+      const systemOuts = testcase['system-out']
+        ? Array.isArray(testcase['system-out'])
+          ? testcase['system-out']
+          : [testcase['system-out']]
+        : undefined
+      // the action only supports 1 failure per testcase
+      const systemOut = systemOuts ? systemOuts[0] : undefined
+
       if (testcase.skipped || testcase._attributes.status === 'disabled') {
         skipped++
       }
@@ -301,6 +310,10 @@ async function parseSuite(
       )
         .toString()
         .trim()
+
+      const sysout: string | undefined = ((systemOut && systemOut._cdata) || (systemOut && systemOut._text))
+        ?.toString()
+        ?.trim()
 
       const message: string = (
         (failure && failure._attributes && failure._attributes.message) ||
@@ -358,6 +371,11 @@ async function parseSuite(
 
       core.info(`${resolvedPath}:${pos.line} | ${message.replace(/\n/g, ' ')}`)
 
+      let rawDetails = stackTrace
+      if (sysout) {
+        rawDetails += `\n\n${sysout}`
+      }
+
       annotations.push({
         path: resolvedPath,
         start_line: pos.line,
@@ -367,7 +385,7 @@ async function parseSuite(
         annotation_level: success ? 'notice' : 'failure',
         title: escapeEmoji(title),
         message: escapeEmoji(message),
-        raw_details: escapeEmoji(stackTrace)
+        raw_details: escapeEmoji(rawDetails)
       })
 
       if (annotationsLimit > 0) {
